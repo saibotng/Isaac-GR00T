@@ -1,0 +1,35 @@
+this worked for setting up the repo with minionsarg and RTX 5090 (Driver: 575 open, Cuda: 12.9):
+
+when in the repos base dir:
+
+-> first build and activate a python 3.10 venv, then:
+
+pip install --upgrade setuptools
+pip install -e .[base]
+pip install jupyter
+pip uninstall -y torch torchvision torchaudio11
+pip uninstall flash-attn -y  
+pip install --pre torch torchvision torchaudio --index-url https://download.pytorch.org/whl/nightly/cu128
+sudo apt-get install python3.10-dev build-essential ninja-build
+export PIP_NO_BUILD_ISOLATION=1        
+export TORCH_CUDA_ARCH_LIST="120"       
+pip install flash-attn==2.8.2 --no-cache-dir
+
+ATTENTION: The last step takes a ling time (ca. 20 min). ChatGPT suggest accelerating it like so (but this has not been tested):
+"""
+    # 0. Stay in the same venv where Torch nightly is installed
+    pip install -U ninja      # make sure python package is present
+
+    # 1. Tell the builder to compile only for Blackwell (one arch)
+    export TORCH_CUDA_ARCH_LIST="12.0"   # or "90"
+    # Optional: cap jobs if you run out of RAM
+    # export MAX_JOBS=24              # 24 cores is fine with 64 GB
+
+    # 2. Disable build isolation so setup.py can import torch
+    export PIP_NO_BUILD_ISOLATION=1
+
+    # 3. Re-install
+    pip uninstall -y flash-attn
+    pip install flash-attn==2.8.2 --no-cache-dir -v
+"""
+

@@ -1,6 +1,42 @@
+Default config:
+
 python scripts/gr00t_finetune.py \
     --dataset-path /media/innovation-hacking/PortableSSD/lerobot_h264 \
     --output-dir /home/innovation-hacking/luebbet/models \
     --max-steps 20000 \
     --data-config tng_ur5_schunk \
+    --embodiment-tag new_embodiment \
     --video-backend torchvision_av \
+    --batch-size 4
+    --tune_llm False \
+    --tune_visual False \
+    --tune_projector True \
+    --tune_diffusion_model True
+
+
+Only embodiment
+
+python scripts/gr00t_finetune.py \
+    --dataset-path /home/innovation-hacking/luebbet/models/embodiment_only_finetune/lerobot_h264 \
+    --output-dir /home/innovation-hacking/luebbet/models/embodiment_only_finetune \
+    --max-steps 20000 \
+    --data-config tng_ur5_schunk \
+    --embodiment-tag new_embodiment \
+    --video-backend torchvision_av \
+    --batch-size 16 \
+    --tune_llm False \
+    --tune_visual False \
+    --tune_projector True \
+    --tune_diffusion_model False
+
+
+eval:
+
+python scripts/eval_policy.py --plot \
+    --dataset_path /media/innovation-hacking/PortableSSD/lerobot_eval \
+    --model_path /home/innovation-hacking/luebbet/models/embodiment_only_finetune/checkpoint-20000 \
+    --embodiment_tag new_embodiment \
+    --data_config tng_ur5_schunk \
+    --video_backend torchvision_av \
+    --modality_keys robot_arm gripper \
+    --save_plot_path /home/innovation-hacking/luebbet/models/embodiment_only_finetune/plots
