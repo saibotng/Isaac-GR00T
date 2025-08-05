@@ -1,0 +1,6 @@
+python scripts/gr00t_finetune.py \
+    --dataset-path /media/innovation-hacking/PortableSSD/lerobot_h264 \
+    --output-dir /home/innovation-hacking/luebbet/models \
+    --max-steps 20000 \
+    --data-config tng_ur5_schunk \
+    --video-backend torchvision_av \
