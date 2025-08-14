@@ -1,5 +1,5 @@
-python scripts/inference_service.py 
-    --model-path /home/innovation-hacking/luebbet/models/whole_head_finetune/checkpoint-20000 
-    --embodiment_tag new_embodiment  
-    --data_config tng_ur5_schunk  
+python scripts/inference_service.py \
+    --model-path /home/innovation-hacking/luebbet/models/whole_head_finetune/checkpoint-20000 \
+    --embodiment_tag new_embodiment \
+    --data_config tng_ur5_schunk \
     --server
