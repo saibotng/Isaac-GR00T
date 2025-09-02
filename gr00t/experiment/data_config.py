@@ -972,11 +972,11 @@ class So101TwoArmsConfig(So100DataConfig):
     
 
 ###########################################################################################
-class TNGUR5SchunkConfig2CamsSim(BaseDataConfig):
-    video_keys = ["video.camera_wrist", "video.camera_global_front"]
-    state_keys = ["state.robot_arm", "state.gripper"]
-    action_keys = ["action.robot_arm", "action.gripper"]
-    language_keys = ["annotation.human.task_description"]
+class TNGUR5BaseConfig(BaseDataConfig):
+    video_keys = []
+    state_keys = []
+    action_keys = []
+    language_keys = []
     observation_indices = [0]
     action_indices = list(range(16))
 
@@ -1049,399 +1049,47 @@ class TNGUR5SchunkConfig2CamsSim(BaseDataConfig):
             ),
         ]
         return ComposedModalityTransform(transforms=transforms)
+
+class TNGUR5_AbsoluteJointState_AbsoluteJointAction_2Cams(TNGUR5BaseConfig):
+    video_keys = ["video.camera_wrist", "video.camera_global_front"]
+    state_keys = ["state.robot_arm", "state.gripper"]
+    action_keys = ["action.robot_arm", "action.gripper"]
+    language_keys = ["annotation.human.task_description"]
+
     
-class TNGUR5SchunkConfig3CamsSim(BaseDataConfig):
+class TNGUR5_AbsoluteJointState_AbsoluteJointAction_3Cams(TNGUR5BaseConfig):
     video_keys = ["video.camera_wrist", "video.camera_global_front", "video.camera_global_side"]
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.robot_arm", "action.gripper"]
     language_keys = ["annotation.human.task_description"]
-    observation_indices = [0]
-    action_indices = list(range(16))
-
-    def modality_config(self) -> dict[str, ModalityConfig]:
-        video_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.video_keys,
-        )
-
-        state_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.state_keys,
-        )
-
-        action_modality = ModalityConfig(
-            delta_indices=self.action_indices,
-            modality_keys=self.action_keys,
-        )
-
-        language_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.language_keys,
-        )
-
-        return {
-            "video": video_modality,
-            "state": state_modality,
-            "action": action_modality,
-            "language": language_modality,
-        }
-    
-    def transform(self) -> ModalityTransform:
-        transforms = [
-            # video transforms
-            VideoToTensor(apply_to=self.video_keys),
-            VideoCrop(apply_to=self.video_keys, scale=0.95),
-            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
-            VideoColorJitter(
-                apply_to=self.video_keys,
-                brightness=0.3,
-                contrast=0.4,
-                saturation=0.5,
-                hue=0.08,
-            ),
-            VideoToNumpy(apply_to=self.video_keys),
-            # state transforms
-            StateActionToTensor(apply_to=self.state_keys),
-            StateActionTransform(
-                apply_to=self.state_keys,
-                normalization_modes={key: "min_max" for key in self.state_keys},
-            ),
-            # action transforms
-            StateActionToTensor(apply_to=self.action_keys),
-            StateActionTransform(
-                apply_to=self.action_keys,
-                normalization_modes={key: "min_max" for key in self.action_keys},
-            ),
-            # concat transforms
-            ConcatTransform(
-                video_concat_order=self.video_keys,
-                state_concat_order=self.state_keys,
-                action_concat_order=self.action_keys,
-            ),
-            # model-specific transform
-            GR00TTransform(
-                state_horizon=len(self.observation_indices),
-                action_horizon=len(self.action_indices),
-                max_state_dim=64,
-                max_action_dim=32,
-            ),
-        ]
-        return ComposedModalityTransform(transforms=transforms)
 
 
-class TNGUR5SchunkConfig_RL(BaseDataConfig):
+class TNGUR5SchunkConfig_RL(TNGUR5BaseConfig):
     video_keys = ["video.wrist_cam", "video.global_front_cam", "video.global_side_cam"]
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.absolute_joints", "action.absolute_gripper"]
     language_keys = ["annotation.human.task_description"]
-    observation_indices = [0]
-    action_indices = list(range(16))
-
-    def modality_config(self) -> dict[str, ModalityConfig]:
-        video_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.video_keys,
-        )
-
-        state_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.state_keys,
-        )
-
-        action_modality = ModalityConfig(
-            delta_indices=self.action_indices,
-            modality_keys=self.action_keys,
-        )
-
-        language_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.language_keys,
-        )
-
-        return {
-            "video": video_modality,
-            "state": state_modality,
-            "action": action_modality,
-            "language": language_modality,
-        }
     
-    def transform(self) -> ModalityTransform:
-        transforms = [
-            # video transforms
-            VideoToTensor(apply_to=self.video_keys),
-            VideoCrop(apply_to=self.video_keys, scale=0.95),
-            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
-            VideoColorJitter(
-                apply_to=self.video_keys,
-                brightness=0.3,
-                contrast=0.4,
-                saturation=0.5,
-                hue=0.08,
-            ),
-            VideoToNumpy(apply_to=self.video_keys),
-            # state transforms
-            StateActionToTensor(apply_to=self.state_keys),
-            StateActionTransform(
-                apply_to=self.state_keys,
-                normalization_modes={key: "min_max" for key in self.state_keys},
-            ),
-            # action transforms
-            StateActionToTensor(apply_to=self.action_keys),
-            StateActionTransform(
-                apply_to=self.action_keys,
-                normalization_modes={key: "min_max" for key in self.action_keys},
-            ),
-            # concat transforms
-            ConcatTransform(
-                video_concat_order=self.video_keys,
-                state_concat_order=self.state_keys,
-                action_concat_order=self.action_keys,
-            ),
-            # model-specific transform
-            GR00TTransform(
-                state_horizon=len(self.observation_indices),
-                action_horizon=len(self.action_indices),
-                max_state_dim=64,
-                max_action_dim=32,
-            ),
-        ]
-        return ComposedModalityTransform(transforms=transforms)
-    
-class TNGUR5SchunkConfig2CamsSimIncreasedObsAbsoluteActions(BaseDataConfig):
+class TNGUR5_AbsoluteAndDeltaJointState_AbsoluteJointAction_2Cams(TNGUR5BaseConfig):
     video_keys = ["video.camera_wrist", "video.camera_global_front"]
     state_keys = ["state.robot_arm", "state.gripper", "state.delta_robot_arm", "state.delta_gripper"]
     action_keys = ["action.robot_arm", "action.gripper"]
     language_keys = ["annotation.human.task_description"]
-    observation_indices = [0]
-    action_indices = list(range(16))
-
-    def modality_config(self) -> dict[str, ModalityConfig]:
-        video_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.video_keys,
-        )
-
-        state_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.state_keys,
-        )
-
-        action_modality = ModalityConfig(
-            delta_indices=self.action_indices,
-            modality_keys=self.action_keys,
-        )
-
-        language_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.language_keys,
-        )
-
-        return {
-            "video": video_modality,
-            "state": state_modality,
-            "action": action_modality,
-            "language": language_modality,
-        }
-    
-    def transform(self) -> ModalityTransform:
-        transforms = [
-            # video transforms
-            VideoToTensor(apply_to=self.video_keys),
-            VideoCrop(apply_to=self.video_keys, scale=0.95),
-            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
-            VideoColorJitter(
-                apply_to=self.video_keys,
-                brightness=0.3,
-                contrast=0.4,
-                saturation=0.5,
-                hue=0.08,
-            ),
-            VideoToNumpy(apply_to=self.video_keys),
-            # state transforms
-            StateActionToTensor(apply_to=self.state_keys),
-            StateActionTransform(
-                apply_to=self.state_keys,
-                normalization_modes={key: "min_max" for key in self.state_keys},
-            ),
-            # action transforms
-            StateActionToTensor(apply_to=self.action_keys),
-            StateActionTransform(
-                apply_to=self.action_keys,
-                normalization_modes={key: "min_max" for key in self.action_keys},
-            ),
-            # concat transforms
-            ConcatTransform(
-                video_concat_order=self.video_keys,
-                state_concat_order=self.state_keys,
-                action_concat_order=self.action_keys,
-            ),
-            # model-specific transform
-            GR00TTransform(
-                state_horizon=len(self.observation_indices),
-                action_horizon=len(self.action_indices),
-                max_state_dim=64,
-                max_action_dim=32,
-            ),
-        ]
-        return ComposedModalityTransform(transforms=transforms)
 
 
-class TNGUR5SchunkConfig2CamsSimIncreasedObsDeltaActions(BaseDataConfig):
+class TNGUR5_AbsoluteAndDeltaJointState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
     video_keys = ["video.camera_wrist", "video.camera_global_front"]
     state_keys = ["state.robot_arm", "state.gripper", "state.delta_robot_arm", "state.delta_gripper"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
-    observation_indices = [0]
-    action_indices = list(range(16))
-
-    def modality_config(self) -> dict[str, ModalityConfig]:
-        video_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.video_keys,
-        )
-
-        state_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.state_keys,
-        )
-
-        action_modality = ModalityConfig(
-            delta_indices=self.action_indices,
-            modality_keys=self.action_keys,
-        )
-
-        language_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.language_keys,
-        )
-
-        return {
-            "video": video_modality,
-            "state": state_modality,
-            "action": action_modality,
-            "language": language_modality,
-        }
-    
-    def transform(self) -> ModalityTransform:
-        transforms = [
-            # video transforms
-            VideoToTensor(apply_to=self.video_keys),
-            VideoCrop(apply_to=self.video_keys, scale=0.95),
-            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
-            VideoColorJitter(
-                apply_to=self.video_keys,
-                brightness=0.3,
-                contrast=0.4,
-                saturation=0.5,
-                hue=0.08,
-            ),
-            VideoToNumpy(apply_to=self.video_keys),
-            # state transforms
-            StateActionToTensor(apply_to=self.state_keys),
-            StateActionTransform(
-                apply_to=self.state_keys,
-                normalization_modes={key: "min_max" for key in self.state_keys},
-            ),
-            # action transforms
-            StateActionToTensor(apply_to=self.action_keys),
-            StateActionTransform(
-                apply_to=self.action_keys,
-                normalization_modes={key: "min_max" for key in self.action_keys},
-            ),
-            # concat transforms
-            ConcatTransform(
-                video_concat_order=self.video_keys,
-                state_concat_order=self.state_keys,
-                action_concat_order=self.action_keys,
-            ),
-            # model-specific transform
-            GR00TTransform(
-                state_horizon=len(self.observation_indices),
-                action_horizon=len(self.action_indices),
-                max_state_dim=64,
-                max_action_dim=32,
-            ),
-        ]
-        return ComposedModalityTransform(transforms=transforms)
     
 
-class TNGUR5SchunkConfig2CamsSimDeltaActions(BaseDataConfig):
+class TNGUR5_AbsoluteJointState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
     video_keys = ["video.camera_wrist", "video.camera_global_front"]
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
-    observation_indices = [0]
-    action_indices = list(range(16))
-
-    def modality_config(self) -> dict[str, ModalityConfig]:
-        video_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.video_keys,
-        )
-
-        state_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.state_keys,
-        )
-
-        action_modality = ModalityConfig(
-            delta_indices=self.action_indices,
-            modality_keys=self.action_keys,
-        )
-
-        language_modality = ModalityConfig(
-            delta_indices=self.observation_indices,
-            modality_keys=self.language_keys,
-        )
-
-        return {
-            "video": video_modality,
-            "state": state_modality,
-            "action": action_modality,
-            "language": language_modality,
-        }
-    
-    def transform(self) -> ModalityTransform:
-        transforms = [
-            # video transforms
-            VideoToTensor(apply_to=self.video_keys),
-            VideoCrop(apply_to=self.video_keys, scale=0.95),
-            VideoResize(apply_to=self.video_keys, height=224, width=224, interpolation="linear"),
-            VideoColorJitter(
-                apply_to=self.video_keys,
-                brightness=0.3,
-                contrast=0.4,
-                saturation=0.5,
-                hue=0.08,
-            ),
-            VideoToNumpy(apply_to=self.video_keys),
-            # state transforms
-            StateActionToTensor(apply_to=self.state_keys),
-            StateActionTransform(
-                apply_to=self.state_keys,
-                normalization_modes={key: "min_max" for key in self.state_keys},
-            ),
-            # action transforms
-            StateActionToTensor(apply_to=self.action_keys),
-            StateActionTransform(
-                apply_to=self.action_keys,
-                normalization_modes={key: "min_max" for key in self.action_keys},
-            ),
-            # concat transforms
-            ConcatTransform(
-                video_concat_order=self.video_keys,
-                state_concat_order=self.state_keys,
-                action_concat_order=self.action_keys,
-            ),
-            # model-specific transform
-            GR00TTransform(
-                state_horizon=len(self.observation_indices),
-                action_horizon=len(self.action_indices),
-                max_state_dim=64,
-                max_action_dim=32,
-            ),
-        ]
-        return ComposedModalityTransform(transforms=transforms)
+   
 
 DATA_CONFIG_MAP = {
     "fourier_gr1_arms_waist": FourierGr1ArmsWaistDataConfig(),
@@ -1458,10 +1106,11 @@ DATA_CONFIG_MAP = {
     "agibot_genie1": AgibotGenie1DataConfig(),
     "tng_so101_dualcam": TNGSo101DataConfig(),
     "so101_two_arms": So101TwoArmsConfig(),
-    "tng_ur5_schunk_2_cams_sim": TNGUR5SchunkConfig2CamsSim(),
-    "tng_ur5_schunk_3_cams_sim": TNGUR5SchunkConfig3CamsSim(),
+    "tng_ur5_AbsJointState_AbsJointAction_2Cams": TNGUR5_AbsoluteJointState_AbsoluteJointAction_2Cams(),
+    "tng_ur5_AbsJointState_AbsJointAction_3Cams": TNGUR5_AbsoluteJointState_AbsoluteJointAction_3Cams(),
+    "tng_ur5_AbsAndDeltaJointState_AbsJointAction_2Cams": TNGUR5_AbsoluteAndDeltaJointState_AbsoluteJointAction_2Cams(),
+    "tng_ur5_AbsAndDeltaJointState_DeltaJointAction_2Cams": TNGUR5_AbsoluteAndDeltaJointState_DeltaJointAction_2Cams(),
+    "tng_ur5_AbsJointState_DeltaJointAction_2Cams": TNGUR5_AbsoluteJointState_DeltaJointAction_2Cams(),
     "tng_ur5_schunk_rl": TNGUR5SchunkConfig_RL(),
-    "tng_ur5_schunk_2_cams_sim_increased_obs_delta_actions": TNGUR5SchunkConfig2CamsSimIncreasedObsDeltaActions(),
-    "tng_ur5_schunk_2_cams_sim_increased_obs_absolute_actions": TNGUR5SchunkConfig2CamsSimIncreasedObsAbsoluteActions(),
-    "tng_ur5_schunk_2_cams_sim_delta_actions": TNGUR5SchunkConfig2CamsSimDeltaActions(),
+
 }
