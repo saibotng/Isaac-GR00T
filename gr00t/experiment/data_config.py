@@ -1089,6 +1089,12 @@ class TNGUR5_AbsoluteJointState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
+
+class TNGUR5_AbsoluteJointAndAbsouluteTCPState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
+    video_keys = ["video.camera_wrist", "video.camera_global_front"]
+    state_keys = ["state.robot_arm", "state.gripper", "state.tcp_pose"]
+    action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
+    language_keys = ["annotation.human.task_description"]
    
 
 DATA_CONFIG_MAP = {
@@ -1111,6 +1117,7 @@ DATA_CONFIG_MAP = {
     "tng_ur5_AbsAndDeltaJointState_AbsJointAction_2Cams": TNGUR5_AbsoluteAndDeltaJointState_AbsoluteJointAction_2Cams(),
     "tng_ur5_AbsAndDeltaJointState_DeltaJointAction_2Cams": TNGUR5_AbsoluteAndDeltaJointState_DeltaJointAction_2Cams(),
     "tng_ur5_AbsJointState_DeltaJointAction_2Cams": TNGUR5_AbsoluteJointState_DeltaJointAction_2Cams(),
+    "tng_ur5_AbsJointAndAbsTCPState_DeltaJointAction_2Cams": TNGUR5_AbsoluteJointAndAbsouluteTCPState_DeltaJointAction_2Cams(),
     "tng_ur5_schunk_rl": TNGUR5SchunkConfig_RL(),
 
 }

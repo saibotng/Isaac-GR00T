@@ -1,8 +1,10 @@
 python scripts/gr00t_finetune.py \
-    --dataset-path /home/innovation-hacking/luebbet/dev/important_datasets/pick_and_place_increased_obs_limited_rotation \
-    --output-dir /home/innovation-hacking/luebbet/models/eval_08_14/diff_increased_obs_delta_actions \
-    --max-steps 20000 \
-    --data-config "tng_ur5_schunk_2_cams_sim_increased_obs_delta_actions" \
+    --train-dataset-path /home/innovation-hacking/luebbet/dev/important_datasets/experiments/01_kinematics/cal3_rand150_dim0-2_moving_target/ \
+    --validation-dataset-path /home/innovation-hacking/luebbet/dev/important_datasets/experiments/01_kinematics/cal3_rand150_dim0-2_moving_target/ \
+    --eval_steps 50 \
+    --output-dir /home/innovation-hacking/luebbet/models/eval_09_05/AbsJoint-State_DeltaJoint-Action \
+    --max-steps 111 \
+    --data-config "tng_ur5_AbsJointState_DeltaJointAction_2Cams" \
     --embodiment-tag new_embodiment \
     --video-backend torchvision_av \
     --batch-size 16 \
@@ -10,43 +12,4 @@ python scripts/gr00t_finetune.py \
     --no-tune-visual \
     --tune-projector \
     --tune-diffusion-model \
-    --report-to tensorboard
-python scripts/gr00t_finetune.py \
-    --dataset-path /home/innovation-hacking/luebbet/dev/important_datasets/pick_and_place_increased_obs_limited_rotation \
-    --output-dir /home/innovation-hacking/luebbet/models/eval_08_14/diff_increased_obs_absolute_actions \
-    --max-steps 20000 \
-    --data-config "tng_ur5_schunk_2_cams_sim_increased_obs_absolute_actions" \
-    --embodiment-tag new_embodiment \
-    --video-backend torchvision_av \
-    --batch-size 16 \
-    --no-tune-llm \
-    --no-tune-visual \
-    --tune-projector \
-    --tune-diffusion-model \
-    --report-to tensorboard
-python scripts/gr00t_finetune.py \
-    --dataset-path /home/innovation-hacking/luebbet/dev/important_datasets/pick_and_place_increased_obs_limited_rotation \
-    --output-dir /home/innovation-hacking/luebbet/models/eval_08_14/diff_small_obs_delta_actions \
-    --max-steps 20000 \
-    --data-config "tng_ur5_schunk_2_cams_sim_delta_actions" \
-    --embodiment-tag new_embodiment \
-    --video-backend torchvision_av \
-    --batch-size 16 \
-    --no-tune-llm \
-    --no-tune-visual \
-    --tune-projector \
-    --tune-diffusion-model \
-    --report-to tensorboard
-python scripts/gr00t_finetune.py \
-    --dataset-path /home/innovation-hacking/luebbet/dev/important_datasets/pick_and_place_increased_obs_limited_rotation \
-    --output-dir /home/innovation-hacking/luebbet/models/eval_08_14/diff_small_obs_absolute_actions \
-    --max-steps 20000 \
-    --data-config "tng_ur5_schunk_2_cams_sim" \
-    --embodiment-tag new_embodiment \
-    --video-backend torchvision_av \
-    --batch-size 16 \
-    --no-tune-llm \
-    --no-tune-visual \
-    --tune-projector \
-    --tune-diffusion-model \
-    --report-to tensorboard
+    --report-to tensorboard \
