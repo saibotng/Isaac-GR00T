@@ -36,6 +36,7 @@ class TrainRunner:
         model: GR00T_N1_5,
         training_args: TrainingArguments,
         train_dataset: LeRobotSingleDataset | LeRobotMixtureDataset,
+        validation_dataset: LeRobotSingleDataset,
         resume_from_checkpoint: bool = False,
     ):
         self.training_args = training_args
@@ -44,6 +45,7 @@ class TrainRunner:
         self.exp_cfg_dir.mkdir(parents=True, exist_ok=True)
         self.resume_from_checkpoint = resume_from_checkpoint
         self.train_dataset = train_dataset
+        self.validation_dataset = validation_dataset
         # Set up training arguments
         training_args.run_name = (
             training_args.output_dir.split("/")[-1]
@@ -139,13 +141,45 @@ class TrainRunner:
                 f"Set global batch size to {global_batch_size}, set gradient accumulation steps to {grad_acc}"
             )
 
+        # Define compute_metrics function to get evaluation loss and other metrics
+        def compute_metrics(eval_pred):
+            """Compute evaluation metrics including loss."""
+            import numpy as np
+            
+            predictions, labels = eval_pred.predictions, eval_pred.label_ids
+            
+            # The basic metrics we want to track
+            metrics = {}
+            
+            # If we have losses in the evaluation prediction, use them
+            if hasattr(eval_pred, 'losses') and eval_pred.losses is not None:
+                # eval_pred.losses should contain the batch losses
+                if isinstance(eval_pred.losses, (list, tuple)):
+                    losses = np.concatenate(eval_pred.losses) if eval_pred.losses else []
+                else:
+                    losses = eval_pred.losses
+                
+                if len(losses) > 0:
+                    avg_loss = np.mean(losses)
+                    metrics['loss'] = float(avg_loss)
+            
+            # You can add more metrics here if needed
+            # For example, if you want to compute MSE between predictions and labels:
+            # if predictions is not None and labels is not None:
+            #     mse = np.mean((predictions - labels) ** 2)
+            #     metrics['mse'] = float(mse)
+            
+            return metrics
+
         # Create the trainer
         trainer = DualBrainTrainer(
             model=model,
             args=training_args,
             train_dataset=train_dataset,
+            eval_dataset=self.validation_dataset,  # Add validation dataset
             data_collator=data_collator,
             compute_dtype=compute_dtype,
+            compute_metrics=compute_metrics,  # Add compute_metrics function
         )
 
         # Add checkpoint format callback to ensure experiment_cfg is copied to each checkpoint
@@ -157,12 +191,14 @@ class TrainRunner:
 
         # Log dataloader information
         train_dl_len = len(trainer.get_train_dataloader())
-        # eval_dl_len = len(trainer.get_eval_dataloader()) # @note (k2): How to manage eval dataloader?
+        if self.validation_dataset is not None:
+            eval_dl_len = len(trainer.get_eval_dataloader())
+        else:
+            eval_dl_len = "N/A (no validation dataset)"
 
         print(
             f"train dataloader length: {train_dl_len}\n"
-            # f"eval dataloader length: {eval_dl_len}\n"
-            f"train dataset length: {len(trainer.train_dataset)}\n"
+            f"eval dataloader length: {eval_dl_len}\n"
             f"GPU memory before training: {torch.cuda.memory_allocated() / 1024 / 1024 / 1024} GB",
             flush=True,
         )
@@ -175,5 +211,5 @@ class TrainRunner:
 
         safe_save_model_for_hf_trainer(
             trainer=self.trainer,
-            output_dir=self.training_args.output_dir,
+            output_dir=self.training_args.output_dir or "output",
         )

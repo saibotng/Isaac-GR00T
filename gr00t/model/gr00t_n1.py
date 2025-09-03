@@ -160,8 +160,15 @@ class GR00T_N1_5(PreTrainedModel):
 
     def forward(
         self,
-        inputs: dict,
+        inputs: dict | None = None,
+        **kwargs,
     ) -> BatchFeature:
+        # Handle HuggingFace trainer calling convention
+        # Trainer calls model(**batch_dict) which passes individual keys as kwargs
+        if inputs is None and kwargs:
+            inputs = kwargs
+        elif inputs is None:
+            raise ValueError("Either 'inputs' or keyword arguments must be provided")
         backbone_inputs, action_inputs = self.prepare_input(inputs)
         backbone_outputs = self.backbone(backbone_inputs)
         action_head_outputs = self.action_head(backbone_outputs, action_inputs)

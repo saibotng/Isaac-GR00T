@@ -38,8 +38,11 @@ class ArgsConfig:
     """Configuration for GR00T model fine-tuning."""
 
     # Dataset parameters
-    dataset_path: List[str]
-    """Path to the dataset directory or directories"""
+    train_dataset_path: List[str]
+    """Path to the training dataset directory or directories"""
+
+    validation_dataset_path: List[str]
+    """Path to the validation dataset directory or directories"""
 
     output_dir: str = "/tmp/gr00t"
     """Directory to save model checkpoints."""
@@ -107,6 +110,19 @@ class ArgsConfig:
     report_to: Literal["wandb", "tensorboard", "azure_ml"] = "wandb"
     """Where to report training metrics (e.g., 'wandb', 'tensorboard', 'azure_ml')."""
 
+    # Evaluation parameters
+    eval_steps: int = 500
+    """Number of training steps between validation evaluations. Set to 0 to disable evaluation."""
+    
+    eval_batch_size: int = 0
+    """Batch size for evaluation. If 0, uses the same as training batch_size."""
+    
+    load_best_model_at_end: bool = False
+    """Whether to load the best model at the end of training based on validation metrics."""
+    
+    metric_for_best_model: str = "eval_loss"
+    """Metric to use for selecting the best model (e.g., 'eval_loss', 'eval_mse')."""
+
     # Data loading parameters
     embodiment_tag: Literal[tuple(EMBODIMENT_TAG_MAPPING.keys())] = "new_embodiment"
     """Embodiment tag to use for training. e.g. 'new_embodiment', 'gr1'"""
@@ -139,9 +155,9 @@ def main(config: ArgsConfig):
     transforms = data_config_cls.transform()
 
     # 1.2 data loader: we will use either single dataset or mixture dataset
-    if len(config.dataset_path) == 1:
+    if len(config.train_dataset_path) == 1:
         train_dataset = LeRobotSingleDataset(
-            dataset_path=config.dataset_path[0],
+            dataset_path=config.train_dataset_path[0],
             modality_configs=modality_configs,
             transforms=transforms,
             embodiment_tag=embodiment_tag,  # This will override the dataset's embodiment tag to "new_embodiment"
@@ -149,7 +165,7 @@ def main(config: ArgsConfig):
         )
     else:
         single_datasets = []
-        for p in config.dataset_path:
+        for p in config.train_dataset_path:
             assert os.path.exists(p), f"Dataset path {p} does not exist"
             ## We use the same transforms, modality configs, and embodiment tag for all datasets here,
             ## in reality, you can use dataset from different modalities and embodiment tags
@@ -175,7 +191,16 @@ def main(config: ArgsConfig):
                 "percentile_mixing_method": "weighted_average",
             },
         )
-        print(f"Loaded {len(single_datasets)} datasets, with {config.dataset_path} ")
+        print(f"Loaded {len(single_datasets)} datasets, with {config.train_dataset_path} ")
+
+    if len(config.validation_dataset_path) == 1:
+        validation_dataset = LeRobotSingleDataset(
+            dataset_path=config.validation_dataset_path[0],
+            modality_configs=modality_configs,
+            transforms=transforms,
+            embodiment_tag=embodiment_tag,  # This will override the dataset's embodiment tag to "new_embodiment"
+            video_backend=config.video_backend,
+        )
 
     # ------------ step 2: load model ------------
     # First, get the data config to determine action horizon
@@ -239,6 +264,9 @@ def main(config: ArgsConfig):
         )
 
     # 2.1 modify training args
+    eval_batch_size = config.eval_batch_size if config.eval_batch_size > 0 else config.batch_size
+    enable_eval = config.eval_steps > 0
+    
     training_args = TrainingArguments(
         output_dir=config.output_dir,
         run_name=None,
@@ -248,6 +276,7 @@ def main(config: ArgsConfig):
         bf16=True,
         tf32=True,
         per_device_train_batch_size=config.batch_size,
+        per_device_eval_batch_size=eval_batch_size,
         gradient_accumulation_steps=1,
         dataloader_num_workers=config.dataloader_num_workers,
         dataloader_pin_memory=False,
@@ -265,11 +294,19 @@ def main(config: ArgsConfig):
         max_steps=config.max_steps,
         save_strategy="steps",
         save_steps=config.save_steps,
-        # evaluation_strategy="no",
+        # Evaluation configuration
+        eval_strategy="steps" if enable_eval else "no",
+        eval_steps=config.eval_steps if enable_eval else None,
+        do_eval=enable_eval,
+        load_best_model_at_end=config.load_best_model_at_end if enable_eval else False,
+        metric_for_best_model=config.metric_for_best_model if enable_eval and config.load_best_model_at_end else None,
+        greater_is_better=False,  # For loss metrics, lower is better
+        # Enable loss in metrics
+        include_inputs_for_metrics=False,  # We don't need inputs for metrics computation
+        prediction_loss_only=False,  # Enable loss computation during evaluation
         save_total_limit=8,
         report_to=config.report_to,
         seed=42,
-        do_eval=False,
         ddp_find_unused_parameters=False,
         ddp_bucket_cap_mb=100,
         torch_compile_mode=None,
@@ -278,6 +315,7 @@ def main(config: ArgsConfig):
     # 2.2 run experiment
     experiment = TrainRunner(
         train_dataset=train_dataset,
+        validation_dataset=validation_dataset,
         model=model,
         training_args=training_args,
         resume_from_checkpoint=config.resume,
