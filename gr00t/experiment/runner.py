@@ -28,6 +28,7 @@ from gr00t.utils.experiment import (
     CheckpointFormatCallback,
     safe_save_model_for_hf_trainer,
 )
+import numpy as np
 
 
 class TrainRunner:
@@ -143,8 +144,6 @@ class TrainRunner:
 
         # Define compute_metrics function to get evaluation loss and other metrics
         def compute_metrics(eval_pred):
-            """Compute evaluation metrics including loss."""
-            import numpy as np
             
             predictions, labels = eval_pred.predictions, eval_pred.label_ids
             
@@ -163,11 +162,6 @@ class TrainRunner:
                     avg_loss = np.mean(losses)
                     metrics['loss'] = float(avg_loss)
             
-            # You can add more metrics here if needed
-            # For example, if you want to compute MSE between predictions and labels:
-            # if predictions is not None and labels is not None:
-            #     mse = np.mean((predictions - labels) ** 2)
-            #     metrics['mse'] = float(mse)
             
             return metrics
 

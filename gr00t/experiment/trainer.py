@@ -80,8 +80,6 @@ class DualBrainTrainer(transformers.Trainer):
         """
         Override prediction_step to handle BatchFeature outputs from GR00T model.
         """
-        import torch
-        
         has_labels = "labels" in inputs or "action" in inputs
         inputs = self._prepare_inputs(inputs)
         
