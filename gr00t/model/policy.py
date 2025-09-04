@@ -28,7 +28,7 @@ from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.data.schema import DatasetMetadata
 from gr00t.data.transform.base import ComposedModalityTransform
 from gr00t.model.gr00t_n1 import GR00T_N1_5
-
+from gr00t.model.action_head.per_modality_state_tokenizer import migrate_fused_to_tokenized
 COMPUTE_DTYPE = torch.bfloat16
 
 
@@ -245,6 +245,7 @@ class Gr00tPolicy(BasePolicy):
         # Get the expected action horizon from the modality config
         expected_action_horizon = len(self._modality_config["action"].delta_indices)
 
+        #TODO: find out when this is actually called and make it work with our multi encoder tokenizer action head
         if expected_action_horizon != model.action_head.config.action_horizon:
             print(
                 f"Policy: Recreating action head with action_horizon {expected_action_horizon} (was {model.action_head.config.action_horizon})"
@@ -267,6 +268,8 @@ class Gr00tPolicy(BasePolicy):
 
             # Replace the action head
             model.action_head = new_action_head
+            slices = model.action_head.state_tokenizer.slices
+            model = migrate_fused_to_tokenized(model, slices)
 
             # Update model config AND the action_head_cfg dictionary that gets saved
             model.config.action_horizon = expected_action_horizon

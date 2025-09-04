@@ -975,6 +975,7 @@ class So101TwoArmsConfig(So100DataConfig):
 class TNGUR5BaseConfig(BaseDataConfig):
     video_keys = []
     state_keys = []
+    state_lengths = []
     action_keys = []
     language_keys = []
     observation_indices = [0]
@@ -1089,6 +1090,7 @@ class TNGUR5_AbsoluteJointState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
+    state_lengths = [6, 1]  # robot_arm has 7 DOF, gripper has 1 DOF
 
 class TNGUR5_AbsoluteJointAndAbsouluteTCPState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
     video_keys = ["video.camera_wrist", "video.camera_global_front"]
