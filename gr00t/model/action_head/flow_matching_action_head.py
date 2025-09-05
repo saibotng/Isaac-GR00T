@@ -176,6 +176,9 @@ class FlowmatchingActionHead(nn.Module):
             hidden_dim=self.hidden_size,
             output_dim=self.action_dim,
         )
+        
+        # Always create state_tokenizer if config has state_composition
+        self.state_tokenizer = None
         if config.state_composition:
             self.state_tokenizer = PerModalityStateTokenizer(
                 state_composition=config.state_composition,
@@ -218,7 +221,7 @@ class FlowmatchingActionHead(nn.Module):
             p.requires_grad = True
         if not tune_projector:
             self.state_encoder.requires_grad_(False)
-            if hasattr(self, 'state_tokenizer') and self.state_tokenizer is not None:
+            if self.state_tokenizer is not None:
                 self.state_tokenizer.requires_grad_(False)  # Add this for the new tokenizer
             self.action_encoder.requires_grad_(False)
             self.action_decoder.requires_grad_(False)
@@ -245,7 +248,7 @@ class FlowmatchingActionHead(nn.Module):
         if self.training:
             if not self.tune_projector:
                 self.state_encoder.eval()
-                if hasattr(self, 'state_tokenizer') and self.state_tokenizer is not None:
+                if self.state_tokenizer is not None:
                     self.state_tokenizer.eval()  # Add this for the new tokenizer
                 self.action_encoder.eval()
                 self.action_decoder.eval()
@@ -301,7 +304,7 @@ class FlowmatchingActionHead(nn.Module):
         embodiment_id = action_input.embodiment_id
 
         # Embed state using the appropriate encoder.
-        if hasattr(self, 'state_tokenizer') and self.state_tokenizer is not None:
+        if self.state_tokenizer is not None:
             # Use the new per-modality tokenizer
             state_tokens = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
             B,T,M,D = state_tokens.shape
@@ -365,7 +368,7 @@ class FlowmatchingActionHead(nn.Module):
         embodiment_id = action_input.embodiment_id
 
         # Embed state using the appropriate encoder.
-        if hasattr(self, 'state_tokenizer') and self.state_tokenizer is not None:
+        if self.state_tokenizer is not None:
             # Use the new per-modality tokenizer
             state_tokens = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
             B,T,M,D = state_tokens.shape

@@ -27,7 +27,7 @@ def action_head_pytorch_forward(self, backbone_output, action_input):
     embodiment_id = action_input.embodiment_id
 
     # Embed state using the new per-modality tokenizer.
-    if hasattr(self, 'state_tokenizer') and self.state_tokenizer is not None:
+    if self.state_tokenizer is not None:
         state_tokens = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
         B,T,M,D = state_tokens.shape
         state_features = state_tokens.view(B, T*M, D)

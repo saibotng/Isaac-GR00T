@@ -220,40 +220,44 @@ def main(config: ArgsConfig):
 
     # Update action_horizon to match data config
     # Need to recreate action head with correct config since it was initialized with old config
-    if data_action_horizon != model.action_head.config.action_horizon or config.use_modality_tokenizer:
-
+    new_action_head_config = model.action_head.config
+    action_head_config_patched = False
+    has_tokenizer_params = any(key.startswith('state_tokenizer.') for key in model.action_head.state_dict().keys())
+    if data_action_horizon != model.action_head.config.action_horizon:
+        print(
+            f"Recreating action head with action_horizon {data_action_horizon} (was {model.action_head.config.action_horizon})"
+        )
 
         # Update the action head config
         new_action_head_config = model.action_head.config
-        if data_action_horizon != model.action_head.config.action_horizon:
-            print(
-                f"Recreating action head with action_horizon {data_action_horizon} (was {model.action_head.config.action_horizon})"
-            )
-            new_action_head_config.action_horizon = data_action_horizon
+        new_action_head_config.action_horizon = data_action_horizon
+        action_head_config_patched = True
 
-        if config.use_modality_tokenizer:
-            print("migrating to multiple encoder action head")
-            new_action_head_config.state_composition = {m.split(".")[-1]: data_config_cls.state_lengths[i] for i, m in enumerate(data_config_cls.state_keys)}
+    if model.action_head.state_tokenizer is None and config.use_modality_tokenizer:
+        print("migrating to multiple encoder action head")
+        new_action_head_config.state_composition = {m.split(".")[-1]: data_config_cls.state_lengths[i] for i, m in enumerate(data_config_cls.state_keys)}
+        action_head_config_patched = True
 
-        # Import the FlowmatchingActionHead class
+    if action_head_config_patched:
         from gr00t.model.action_head.flow_matching_action_head import (
             FlowmatchingActionHead,
         )
 
         # Create new action head with updated config
         new_action_head = FlowmatchingActionHead(new_action_head_config)
-        
-
-        # Copy the weights from the old action head to the new one
         new_action_head.load_state_dict(model.action_head.state_dict(), strict=False)
-        # Replace the action head
         model.action_head = new_action_head
-        if config.use_modality_tokenizer:
+
+        if not has_tokenizer_params and config.use_modality_tokenizer:
+            print("migrating weights for state_tokenizer")
             slices = model.action_head.state_tokenizer.slices
             model = migrate_fused_to_tokenized(model, slices)
 
+        
+        if config.use_modality_tokenizer:
+            model.config.action_head_cfg["state_composition"] = new_action_head_config.state_composition
 
-        # Update model config AND the action_head_cfg dictionary that gets saved
+
         model.config.action_horizon = data_action_horizon
         model.action_horizon = data_action_horizon
         model.config.action_head_cfg["action_horizon"] = data_action_horizon

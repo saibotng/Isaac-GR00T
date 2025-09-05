@@ -241,6 +241,28 @@ class Gr00tPolicy(BasePolicy):
         model.eval()  # Set model to eval mode
         model.to(device=self.device)  # type: ignore
 
+        # Debug: Print information about the loaded model
+        print("=" * 50)
+        print("LOADED MODEL DEBUG INFO:")
+        print(f"Model class: {type(model).__name__}")
+        print(f"Action head class: {type(model.action_head).__name__}")
+        print(f"Action head config type: {type(model.action_head.config).__name__}")
+        print()
+        print("Action head config attributes:")
+        for attr in dir(model.action_head.config):
+            if not attr.startswith('_'):
+                try:
+                    value = getattr(model.action_head.config, attr)
+                    if not callable(value):
+                        print(f"  - {attr}: {value}")
+                except:
+                    print(f"  - {attr}: <error accessing>")
+        print()
+        print(f"Action head modules:")
+        for name, module in model.action_head.named_children():
+            print(f"  - {name}: {type(module).__name__}")
+        print("=" * 50)
+
         # Update action_horizon to match modality config
         # Get the expected action horizon from the modality config
         expected_action_horizon = len(self._modality_config["action"].delta_indices)

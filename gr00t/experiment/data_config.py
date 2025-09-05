@@ -1090,13 +1090,15 @@ class TNGUR5_AbsoluteJointState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
-    state_lengths = [6, 1]  # robot_arm has 7 DOF, gripper has 1 DOF
+    state_lengths = [6, 1]  
 
 class TNGUR5_AbsoluteJointAndAbsouluteTCPState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
     video_keys = ["video.camera_wrist", "video.camera_global_front"]
     state_keys = ["state.robot_arm", "state.gripper", "state.tcp_pose"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
+    state_lengths = [6, 1, 7]
+
    
 
 DATA_CONFIG_MAP = {
