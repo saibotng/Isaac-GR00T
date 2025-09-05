@@ -131,9 +131,11 @@ class FlowmatchingActionHeadConfig(PretrainedConfig):
         default=32, metadata={"help": "Number of target vision tokens."}
     )
 
-    state_composition: dict | None = field(
+    state_slices: dict | None = field(
         default=None, metadata={"help": "State composition configuration."}
     )
+
+    use_per_modality_tokenizer: bool = field(default=False)
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -156,7 +158,7 @@ class FlowmatchingActionHead(nn.Module):
         self.model = DiT(**config.diffusion_model_cfg)
         self.action_dim = config.action_dim
         self.action_horizon = config.action_horizon
-        self.state_composition = config.state_composition
+        self.state_slices = config.state_slices
         self.num_inference_timesteps = config.num_inference_timesteps
 
         self.state_encoder = CategorySpecificMLP(
@@ -179,19 +181,13 @@ class FlowmatchingActionHead(nn.Module):
         
         # Always create state_tokenizer if config has state_composition
         self.state_tokenizer = None
-        if config.state_composition:
+        if config.use_per_modality_tokenizer:
             self.state_tokenizer = PerModalityStateTokenizer(
-                state_composition=config.state_composition,
+                state_slices=config.state_slices,
                 hidden_size=self.hidden_size,
                 embed_dim=self.input_embedding_dim,
                 num_embodiments=config.max_num_embodiments,
             )
-            slices, total = build_slices_from_lengths(config.state_composition)
-            if total > config.max_state_dim:
-                raise ValueError(
-                    f"state_lengths sum ({total}) exceeds max_state_dim ({config.max_state_dim})"
-                )
-            self.state_tokenizer.slices = slices
 
         self.future_tokens = nn.Embedding(config.num_target_vision_tokens, self.input_embedding_dim)
         nn.init.normal_(self.future_tokens.weight, mean=0.0, std=0.02)
@@ -306,9 +302,9 @@ class FlowmatchingActionHead(nn.Module):
         # Embed state using the appropriate encoder.
         if self.state_tokenizer is not None:
             # Use the new per-modality tokenizer
-            state_tokens = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
-            B,T,M,D = state_tokens.shape
-            state_features = state_tokens.view(B, T*M, D)
+            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
+            B,T, state_dim = state_features.shape
+            #state_features = state_tokens.view(B, T*M, D)
         else:
             # Fallback to the old fused state encoder
             B, T, state_dim = action_input.state.shape
@@ -370,9 +366,9 @@ class FlowmatchingActionHead(nn.Module):
         # Embed state using the appropriate encoder.
         if self.state_tokenizer is not None:
             # Use the new per-modality tokenizer
-            state_tokens = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
-            B,T,M,D = state_tokens.shape
-            state_features = state_tokens.view(B, T*M, D)
+            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
+            B,T, state_dim = state_features.shape
+            #state_features = state_tokens.view(B, T*M, D)
         else:
             # Fallback to the old fused state encoder
             B, T, state_dim = action_input.state.shape

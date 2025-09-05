@@ -139,7 +139,7 @@ class ArgsConfig:
     balance_trajectory_weights: bool = True
     """Used in LeRobotMixtureDataset. If True, sample trajectories within a dataset weighted by their length; otherwise, equal weighting."""
 
-    use_modality_tokenizer: bool = False
+    train_modality_tokenizer: bool = False
 
 
 #####################################################################################
@@ -233,9 +233,10 @@ def main(config: ArgsConfig):
         new_action_head_config.action_horizon = data_action_horizon
         action_head_config_patched = True
 
-    if model.action_head.state_tokenizer is None and config.use_modality_tokenizer:
+    if model.action_head.state_tokenizer is None and config.train_modality_tokenizer:
         print("migrating to multiple encoder action head")
-        new_action_head_config.state_composition = {m.split(".")[-1]: data_config_cls.state_lengths[i] for i, m in enumerate(data_config_cls.state_keys)}
+        new_action_head_config.state_slices = {m.split(".")[-1]: data_config_cls.state_slices[i] for i, m in enumerate(data_config_cls.state_keys)}
+        new_action_head_config.use_per_modality_tokenizer = True
         action_head_config_patched = True
 
     if action_head_config_patched:
@@ -248,15 +249,14 @@ def main(config: ArgsConfig):
         new_action_head.load_state_dict(model.action_head.state_dict(), strict=False)
         model.action_head = new_action_head
 
-        if not has_tokenizer_params and config.use_modality_tokenizer:
+        if not has_tokenizer_params and config.train_modality_tokenizer:
             print("migrating weights for state_tokenizer")
-            slices = model.action_head.state_tokenizer.slices
-            model = migrate_fused_to_tokenized(model, slices)
+            model = migrate_fused_to_tokenized(model)
 
         
-        if config.use_modality_tokenizer:
-            model.config.action_head_cfg["state_composition"] = new_action_head_config.state_composition
-
+        if config.train_modality_tokenizer:
+            model.config.action_head_cfg["state_slices"] = new_action_head_config.state_slices
+            model.config.action_head_cfg["use_per_modality_tokenizer"] = True
 
         model.config.action_horizon = data_action_horizon
         model.action_horizon = data_action_horizon

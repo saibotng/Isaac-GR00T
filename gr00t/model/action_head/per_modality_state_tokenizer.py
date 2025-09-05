@@ -47,68 +47,40 @@ class PerModalityStateTokenizer(nn.Module):
     Keeps embodiment-aware adapters by reusing CategorySpecificMLP.
     No gating here (yet).
     """
-    def __init__(self, state_composition, hidden_size, embed_dim, num_embodiments):
+    def __init__(self, state_slices, hidden_size, embed_dim, num_embodiments):
         super().__init__()
-        self.modalities = state_composition.keys()
-        self.in_dims = state_composition
+        self.ordered_state_slices = sorted(state_slices.items(), key=lambda item: item[1][0]) 
         self.hidden_size = hidden_size
         self.embed_dim = embed_dim
         self.num_embodiments = num_embodiments
 
         # One adapter per modality → (B,S=1,in_dim) -> (B,S=1,embed_dim)
-        self.adapters = nn.ModuleDict({
-            m: CategorySpecificMLP(num_embodiments, self.in_dims[m], hidden_size, embed_dim)
-            for m in self.modalities
-        })
+        self.adapters = nn.ModuleList([
+            CategorySpecificMLP(num_embodiments, (e-s), hidden_size, embed_dim)
+            for _, (s,e) in self.ordered_state_slices
+        ])
         # Additive token-type embedding per modality (broadcast over batch/seq)
-        self.type_embed = nn.ParameterDict({
-            m: nn.Parameter(torch.randn(1, 1, embed_dim) * 0.02) for m in self.modalities
-        })
+        self.type_embed = nn.ParameterList([
+            nn.Parameter(torch.randn(1, 1, embed_dim) * 0.02) for _, _ in self.ordered_state_slices
+        ])
 
-        # slices will be injected from config
-        self._slices = None
-
-    def set_slices_from_keys_lengths(self, state_composition):
-        slices, total = build_slices_from_lengths(state_composition)
-        self._slices = slices
-        return total
     
-    @property
-    def slices(self):
-        return self._slices
 
-    @slices.setter
-    def slices(self, sdict):
-        # dict: modality -> (start, end)
-        self._slices = dict(sdict)
-
-    def forward(self, state_btD, embodiment_id_bt1):
+    def forward(self, state_btD, emb_ids):
         """
         state_btD:          (B, T, D_state)  concatenated state per timestep
-        embodiment_id_bt1: (B, T, 1) or (B, 1, 1) int IDs for CategorySpecificMLP
+        embodiment_id_bt1: (B)
         returns: state_tokens (B, T, M, embed_dim)
         """
-        assert self._slices is not None, "PerModalityStateTokenizer.slices not set"
-        B, T, D = state_btD.shape
-
-        # Make embodiment ids align with (B*T,1,1)
-        if embodiment_id_bt1.dim() == 3 and embodiment_id_bt1.size(1) == 1:
-            emb_ids = embodiment_id_bt1.expand(B, T, 1)
-        else:
-            emb_ids = embodiment_id_bt1
-        emb_ids = emb_ids.reshape(B*T, 1, 1)
 
         tokens = []
-        for m in self.modalities:
-            s, e = self._slices[m]
-            x = state_btD[..., s:e]            # (B, T, in_dim_m)
-            x = x.reshape(B*T, 1, e - s)       # CategorySpecificMLP expects (B', S=1, in_dim)
-            z = self.adapters[m](x, emb_ids)   # (B*T, 1, embed_dim) embodiment-aware
-            z = z + self.type_embed[m]         # token-type embedding
-            z = z.reshape(B, T, 1, self.embed_dim)
+        # since order in dicts is not consistent, lets append in correct slice order
+        for i, (_, (s, e)) in enumerate(self.ordered_state_slices):
+            x = state_btD[..., s:e]          
+            z = self.adapters[i](x, emb_ids)
+            z = z + self.type_embed[i]    
             tokens.append(z)
-
-        state_tokens = torch.cat(tokens, dim=2)  # (B, T, M, D)
+        state_tokens = torch.cat(tokens, dim=1)  # (B, T, M, D)
         return state_tokens
 
 
@@ -160,7 +132,7 @@ def _get_category_specific_layers(module: nn.Module):
             raise ValueError(f"Expected CategorySpecificMLP with layer1 and layer2, got {type(module)}")
 
 @torch.no_grad()
-def migrate_fused_to_tokenized(model, modality_slices: dict):
+def migrate_fused_to_tokenized(model):
     """
     Copy weights from fused state_encoder to per-modality adapters by slicing weights from CategorySpecificLinear layers.
     This function is optional - if the migration fails, the model will still work with randomly initialized weights.
@@ -186,20 +158,16 @@ def migrate_fused_to_tokenized(model, modality_slices: dict):
         print(f"Info: Could not extract layers from state_encoder (model might already be migrated): {e}")
         return model
 
-    print(f"Migrating weights for modalities: {list(modality_slices.keys())}")
+    print(f"Migrating weights for modalities: {tok.ordered_state_slices}")
     
-    for m, (s, e) in modality_slices.items():
-        if m not in tok.adapters:
-            print(f"Warning: Modality '{m}' not found in tokenizer adapters")
-            continue
-            
+    for i, (m, (s, e)) in enumerate(tok.ordered_state_slices):         
         try:
-            layer1_m, layer2_m = _get_category_specific_layers(tok.adapters[m])
+            layer1_m, layer2_m = _get_category_specific_layers(tok.adapters[i])
 
             # Verify dimensions match before copying
             expected_in_dim = e - s
             if layer1_fused.W.shape[1] < e or layer1_m.W.shape[1] != expected_in_dim:
-                print(f"Warning: Dimension mismatch for modality '{m}' (expected {expected_in_dim}, got fused={layer1_fused.W.shape[1]}, target={layer1_m.W.shape[1]})")
+                print(f"Warning: Dimension mismatch for modality '{i}' (expected {expected_in_dim}, got fused={layer1_fused.W.shape[1]}, target={layer1_m.W.shape[1]})")
                 continue
 
             # 1) first layer: copy column slice from W parameter (num_categories, input_dim, hidden_dim)
