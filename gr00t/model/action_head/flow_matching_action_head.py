@@ -205,6 +205,11 @@ class FlowmatchingActionHead(nn.Module):
             self.position_embedding = nn.Embedding(config.max_seq_len, self.input_embedding_dim)
             nn.init.normal_(self.position_embedding.weight, mean=0.0, std=0.02)
 
+        if config.use_per_modality_tokenizer:
+            self.state_positional_encoding = nn.Embedding(config.max_seq_len, self.input_embedding_dim) 
+            nn.init.normal_(self.state_positional_encoding.weight, mean=0.0, std=0.02)
+
+
         self.beta_dist = Beta(config.noise_beta_alpha, config.noise_beta_beta)
         self.num_timestep_buckets = config.num_timestep_buckets
         self.config = config
@@ -304,6 +309,9 @@ class FlowmatchingActionHead(nn.Module):
             # Use the new per-modality tokenizer
             state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
             B,T, state_dim = state_features.shape
+            state_ids = torch.arange(T, dtype=torch.long, device=device)
+            state_pos_embs = self.state_positional_encoding(state_ids).unsqueeze(0)
+            state_features = state_features + state_pos_embs
             #state_features = state_tokens.view(B, T*M, D)
         else:
             # Fallback to the old fused state encoder
@@ -368,7 +376,9 @@ class FlowmatchingActionHead(nn.Module):
             # Use the new per-modality tokenizer
             state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
             B,T, state_dim = state_features.shape
-            #state_features = state_tokens.view(B, T*M, D)
+            state_ids = torch.arange(T, dtype=torch.long, device=device)
+            state_pos_embs = self.state_positional_encoding(state_ids).unsqueeze(0)
+            state_features = state_features + state_pos_embs
         else:
             # Fallback to the old fused state encoder
             B, T, state_dim = action_input.state.shape

@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class CategorySpecificLinear(nn.Module):
     def __init__(self, num_categories, input_dim, hidden_dim):
         super().__init__()
@@ -11,15 +12,8 @@ class CategorySpecificLinear(nn.Module):
         self.b = nn.Parameter(torch.zeros(num_categories, hidden_dim))
 
     def forward(self, x, cat_ids):
-        # x: (B, seq_len, input_dim)
-        # cat_ids: (B, 1, 1) or (B,) embodiment IDs
-        if cat_ids.dim() == 3:
-            cat_ids = cat_ids.squeeze(-1).squeeze(-1)  # (B, 1, 1) -> (B,)
-        elif cat_ids.dim() == 2:
-            cat_ids = cat_ids.squeeze(-1)  # (B, 1) -> (B,)
-            
-        selected_W = self.W[cat_ids]  # (B, input_dim, hidden_dim)
-        selected_b = self.b[cat_ids]  # (B, hidden_dim)
+        selected_W = self.W[cat_ids]
+        selected_b = self.b[cat_ids]
         return torch.bmm(x, selected_W) + selected_b.unsqueeze(1)
 
 
@@ -74,13 +68,12 @@ class PerModalityStateTokenizer(nn.Module):
         """
 
         tokens = []
-        # since order in dicts is not consistent, lets append in correct slice order
         for i, (_, (s, e)) in enumerate(self.ordered_state_slices):
             x = state_btD[..., s:e]          
             z = self.adapters[i](x, emb_ids)
             z = z + self.type_embed[i]    
             tokens.append(z)
-        state_tokens = torch.cat(tokens, dim=1)  # (B, T, M, D)
+        state_tokens = torch.cat(tokens, dim=1)
         return state_tokens
 
 
