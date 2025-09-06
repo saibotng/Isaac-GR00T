@@ -18,6 +18,7 @@ from transformers.feature_extraction_utils import BatchFeature
 
 
 def action_head_pytorch_forward(self, backbone_output, action_input):
+    # NOTE: Updated to use the new state_tokenizer instead of state_encoder
 
     backbone_output = self.process_backbone_output(backbone_output)
 
@@ -25,8 +26,13 @@ def action_head_pytorch_forward(self, backbone_output, action_input):
     vl_embs = backbone_output.backbone_features
     embodiment_id = action_input.embodiment_id
 
-    # Embed state.
-    state_features = self.state_encoder(action_input.state, embodiment_id)
+    # Embed state using the new per-modality tokenizer.
+    if self.state_tokenizer is not None:
+        state_tokens = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
+        B,T,M,D = state_tokens.shape
+        state_features = state_tokens.view(B, T*M, D)
+    else:
+        state_features = self.state_encoder(action_input.state, embodiment_id)
 
     # Set initial actions as the sampled noise.
     batch_size = vl_embs.shape[0]

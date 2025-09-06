@@ -28,32 +28,7 @@ from gr00t.model.action_head.action_encoder import (
 )
 
 from .cross_attention_dit import DiT, SelfAttentionTransformer
-
-
-class CategorySpecificLinear(nn.Module):
-    def __init__(self, num_categories, input_dim, hidden_dim):
-        super().__init__()
-        self.num_categories = num_categories
-        # For each category, we have separate weights and biases.
-        self.W = nn.Parameter(0.02 * torch.randn(num_categories, input_dim, hidden_dim))
-        self.b = nn.Parameter(torch.zeros(num_categories, hidden_dim))
-
-    def forward(self, x, cat_ids):
-        selected_W = self.W[cat_ids]
-        selected_b = self.b[cat_ids]
-        return torch.bmm(x, selected_W) + selected_b.unsqueeze(1)
-
-
-class CategorySpecificMLP(nn.Module):
-    def __init__(self, num_categories, input_dim, hidden_dim, output_dim):
-        super().__init__()
-        self.num_categories = num_categories
-        self.layer1 = CategorySpecificLinear(num_categories, input_dim, hidden_dim)
-        self.layer2 = CategorySpecificLinear(num_categories, hidden_dim, output_dim)
-
-    def forward(self, x, cat_ids):
-        hidden = F.relu(self.layer1(x, cat_ids))
-        return self.layer2(hidden, cat_ids)
+from gr00t.model.action_head.per_modality_state_tokenizer import PerModalityStateTokenizer, build_slices_from_lengths, CategorySpecificMLP, CategorySpecificLinear
 
 
 class MultiEmbodimentActionEncoder(nn.Module):
@@ -156,6 +131,12 @@ class FlowmatchingActionHeadConfig(PretrainedConfig):
         default=32, metadata={"help": "Number of target vision tokens."}
     )
 
+    state_slices: dict | None = field(
+        default=None, metadata={"help": "State composition configuration."}
+    )
+
+    use_per_modality_tokenizer: bool = field(default=False)
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         for key, value in kwargs.items():
@@ -177,6 +158,7 @@ class FlowmatchingActionHead(nn.Module):
         self.model = DiT(**config.diffusion_model_cfg)
         self.action_dim = config.action_dim
         self.action_horizon = config.action_horizon
+        self.state_slices = config.state_slices
         self.num_inference_timesteps = config.num_inference_timesteps
 
         self.state_encoder = CategorySpecificMLP(
@@ -196,6 +178,17 @@ class FlowmatchingActionHead(nn.Module):
             hidden_dim=self.hidden_size,
             output_dim=self.action_dim,
         )
+        
+        # Always create state_tokenizer if config has state_composition
+        self.state_tokenizer = None
+        if config.use_per_modality_tokenizer:
+            self.state_tokenizer = PerModalityStateTokenizer(
+                state_slices=config.state_slices,
+                hidden_size=self.hidden_size,
+                embed_dim=self.input_embedding_dim,
+                num_embodiments=config.max_num_embodiments,
+            )
+
         self.future_tokens = nn.Embedding(config.num_target_vision_tokens, self.input_embedding_dim)
         nn.init.normal_(self.future_tokens.weight, mean=0.0, std=0.02)
 
@@ -212,6 +205,11 @@ class FlowmatchingActionHead(nn.Module):
             self.position_embedding = nn.Embedding(config.max_seq_len, self.input_embedding_dim)
             nn.init.normal_(self.position_embedding.weight, mean=0.0, std=0.02)
 
+        if config.use_per_modality_tokenizer:
+            self.state_positional_encoding = nn.Embedding(config.max_seq_len, self.input_embedding_dim) 
+            nn.init.normal_(self.state_positional_encoding.weight, mean=0.0, std=0.02)
+
+
         self.beta_dist = Beta(config.noise_beta_alpha, config.noise_beta_beta)
         self.num_timestep_buckets = config.num_timestep_buckets
         self.config = config
@@ -224,6 +222,8 @@ class FlowmatchingActionHead(nn.Module):
             p.requires_grad = True
         if not tune_projector:
             self.state_encoder.requires_grad_(False)
+            if self.state_tokenizer is not None:
+                self.state_tokenizer.requires_grad_(False)  # Add this for the new tokenizer
             self.action_encoder.requires_grad_(False)
             self.action_decoder.requires_grad_(False)
             if self.config.add_pos_embed:
@@ -249,6 +249,8 @@ class FlowmatchingActionHead(nn.Module):
         if self.training:
             if not self.tune_projector:
                 self.state_encoder.eval()
+                if self.state_tokenizer is not None:
+                    self.state_tokenizer.eval()  # Add this for the new tokenizer
                 self.action_encoder.eval()
                 self.action_decoder.eval()
                 if self.config.add_pos_embed:
@@ -302,8 +304,19 @@ class FlowmatchingActionHead(nn.Module):
         # Get embodiment ID.
         embodiment_id = action_input.embodiment_id
 
-        # Embed state.
-        state_features = self.state_encoder(action_input.state, embodiment_id)
+        # Embed state using the appropriate encoder.
+        if self.state_tokenizer is not None:
+            # Use the new per-modality tokenizer
+            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
+            B,T, state_dim = state_features.shape
+            state_ids = torch.arange(T, dtype=torch.long, device=device)
+            state_pos_embs = self.state_positional_encoding(state_ids).unsqueeze(0)
+            state_features = state_features + state_pos_embs
+            #state_features = state_tokens.view(B, T*M, D)
+        else:
+            # Fallback to the old fused state encoder
+            B, T, state_dim = action_input.state.shape
+            state_features = self.state_encoder(action_input.state, embodiment_id)  # (B,T,D)
 
         # Embed noised action trajectory.
         actions = action_input.action
@@ -358,8 +371,18 @@ class FlowmatchingActionHead(nn.Module):
         vl_embs = backbone_output.backbone_features
         embodiment_id = action_input.embodiment_id
 
-        # Embed state.
-        state_features = self.state_encoder(action_input.state, embodiment_id)
+        # Embed state using the appropriate encoder.
+        if self.state_tokenizer is not None:
+            # Use the new per-modality tokenizer
+            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
+            B,T, state_dim = state_features.shape
+            state_ids = torch.arange(T, dtype=torch.long, device=device)
+            state_pos_embs = self.state_positional_encoding(state_ids).unsqueeze(0)
+            state_features = state_features + state_pos_embs
+        else:
+            # Fallback to the old fused state encoder
+            B, T, state_dim = action_input.state.shape
+            state_features = self.state_encoder(action_input.state, embodiment_id)  # (B,T,D)
 
         # Set initial actions as the sampled noise.
         batch_size = vl_embs.shape[0]
