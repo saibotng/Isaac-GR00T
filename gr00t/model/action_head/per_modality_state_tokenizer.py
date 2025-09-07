@@ -54,9 +54,9 @@ class PerModalityStateTokenizer(nn.Module):
             for _, (s,e) in self.ordered_state_slices
         ])
         # Additive token-type embedding per modality (broadcast over batch/seq)
-        self.type_embed = nn.ParameterList([
-            nn.Parameter(torch.randn(1, 1, embed_dim) * 0.02) for _, _ in self.ordered_state_slices
-        ])
+        # self.type_embed = nn.ParameterList([
+        #     nn.Parameter(torch.randn(1, 1, embed_dim) * 0.02) for _, _ in self.ordered_state_slices
+        # ])
 
     
 
@@ -71,7 +71,7 @@ class PerModalityStateTokenizer(nn.Module):
         for i, (_, (s, e)) in enumerate(self.ordered_state_slices):
             x = state_btD[..., s:e]          
             z = self.adapters[i](x, emb_ids)
-            z = z + self.type_embed[i]    
+            #z = z + self.type_embed[i]    
             tokens.append(z)
         state_tokens = torch.cat(tokens, dim=1)
         return state_tokens
