@@ -53,10 +53,14 @@ class PerModalityStateTokenizer(nn.Module):
             CategorySpecificMLP(num_embodiments, (e-s), hidden_size, embed_dim)
             for _, (s,e) in self.ordered_state_slices
         ])
-        # Additive token-type embedding per modality (broadcast over batch/seq)
-        # self.type_embed = nn.ParameterList([
-        #     nn.Parameter(torch.randn(1, 1, embed_dim) * 0.02) for _, _ in self.ordered_state_slices
-        # ])
+        #Additive token-type embedding per modality (broadcast over batch/seq)
+        self.type_embed = nn.ParameterList([
+            nn.Parameter(torch.randn(1, 1, embed_dim) * 0.02) for _, _ in self.ordered_state_slices
+        ])
+        self.per_mod_ln = nn.ModuleList([
+            nn.LayerNorm(embed_dim) for _ in self.ordered_state_slices
+        ])
+        self.post_pool_ln = nn.LayerNorm(embed_dim)
 
     
 
@@ -66,14 +70,16 @@ class PerModalityStateTokenizer(nn.Module):
         embodiment_id_bt1: (B)
         returns: state_tokens (B, T, M, embed_dim)
         """
-
         tokens = []
         for i, (_, (s, e)) in enumerate(self.ordered_state_slices):
             x = state_btD[..., s:e]          
             z = self.adapters[i](x, emb_ids)
-            #z = z + self.type_embed[i]    
+            z = z + self.type_embed[i]
+            z = self.per_mod_ln[i](z)
             tokens.append(z)
         state_tokens = torch.cat(tokens, dim=1)
+        state_tokens = state_tokens.mean(dim=1).unsqueeze(1) 
+        state_tokens = self.post_pool_ln(state_tokens)
         return state_tokens
 
 

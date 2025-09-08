@@ -304,18 +304,14 @@ class FlowmatchingActionHead(nn.Module):
         # Get embodiment ID.
         embodiment_id = action_input.embodiment_id
 
+        B, T, state_dim = action_input.state.shape
         # Embed state using the appropriate encoder.
         if self.state_tokenizer is not None:
             # Use the new per-modality tokenizer
-            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
-            B,T, state_dim = state_features.shape
-            #state_ids = torch.arange(T, dtype=torch.long, device=device)
-            #state_pos_embs = self.state_positional_encoding(state_ids).unsqueeze(0)
-            #state_features = state_features + state_pos_embs
-            #state_features = state_tokens.view(B, T*M, D)
+            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,M,D)
         else:
             # Fallback to the old fused state encoder
-            B, T, state_dim = action_input.state.shape
+            
             state_features = self.state_encoder(action_input.state, embodiment_id)  # (B,T,D)
 
         # Embed noised action trajectory.
@@ -370,18 +366,14 @@ class FlowmatchingActionHead(nn.Module):
         # Get vision and language embeddings.
         vl_embs = backbone_output.backbone_features
         embodiment_id = action_input.embodiment_id
-
+        B, T, state_dim = action_input.state.shape
         # Embed state using the appropriate encoder.
         if self.state_tokenizer is not None:
             # Use the new per-modality tokenizer
-            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,T,M,D)
-            B,T, state_dim = state_features.shape
-            #state_ids = torch.arange(T, dtype=torch.long, device=state_features.device)
-            #state_pos_embs = self.state_positional_encoding(state_ids).unsqueeze(0)
-            #state_features = state_features + state_pos_embs
+            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,M,D)
         else:
             # Fallback to the old fused state encoder
-            B, T, state_dim = action_input.state.shape
+            
             state_features = self.state_encoder(action_input.state, embodiment_id)  # (B,T,D)
 
         # Set initial actions as the sampled noise.
