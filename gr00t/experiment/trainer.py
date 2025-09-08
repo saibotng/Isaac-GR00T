@@ -76,59 +76,59 @@ class DualBrainTrainer(transformers.Trainer):
         loss = outputs["loss"]
         return (loss, outputs) if return_outputs else loss
 
-    def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
-        """
-        Override prediction_step to handle BatchFeature outputs from GR00T model.
-        """
-        has_labels = "labels" in inputs or "action" in inputs
-        inputs = self._prepare_inputs(inputs)
+    # def prediction_step(self, model, inputs, prediction_loss_only, ignore_keys=None):
+    #     """
+    #     Override prediction_step to handle BatchFeature outputs from GR00T model.
+    #     """
+    #     has_labels = "labels" in inputs or "action" in inputs
+    #     inputs = self._prepare_inputs(inputs)
         
-        if ignore_keys is None:
-            ignore_keys = []
+    #     if ignore_keys is None:
+    #         ignore_keys = []
         
-        # Forward pass
-        with torch.no_grad():
-            if has_labels:
-                with self.compute_loss_context_manager():
-                    loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
-                loss = loss.detach().mean()
+    #     # Forward pass
+    #     with torch.no_grad():
+    #         if has_labels:
+    #             with self.compute_loss_context_manager():
+    #                 loss, outputs = self.compute_loss(model, inputs, return_outputs=True)
+    #             loss = loss.detach().mean()
 
-                # Handle BatchFeature outputs from GR00T model
-                if isinstance(outputs, dict):
-                    # For GR00T, we typically care about action_pred
-                    if "action_pred" in outputs:
-                        logits = outputs["action_pred"]
-                    else:
-                        # Extract the first non-loss tensor
-                        logits_keys = [k for k in outputs.keys() if k not in ignore_keys + ["loss"] and torch.is_tensor(outputs[k])]
-                        if logits_keys:
-                            logits = outputs[logits_keys[0]]
-                        else:
-                            logits = None
-                else:
-                    logits = outputs
-            else:
-                loss = None
-                outputs = model(inputs)
-                if isinstance(outputs, dict):
-                    if "action_pred" in outputs:
-                        logits = outputs["action_pred"]
-                    else:
-                        logits_keys = [k for k in outputs.keys() if k not in ignore_keys and torch.is_tensor(outputs[k])]
-                        if logits_keys:
-                            logits = outputs[logits_keys[0]]
-                        else:
-                            logits = None
-                else:
-                    logits = outputs
+    #             # Handle BatchFeature outputs from GR00T model
+    #             if isinstance(outputs, dict):
+    #                 # For GR00T, we typically care about action_pred
+    #                 if "action_pred" in outputs:
+    #                     logits = outputs["action_pred"]
+    #                 else:
+    #                     # Extract the first non-loss tensor
+    #                     logits_keys = [k for k in outputs.keys() if k not in ignore_keys + ["loss"] and torch.is_tensor(outputs[k])]
+    #                     if logits_keys:
+    #                         logits = outputs[logits_keys[0]]
+    #                     else:
+    #                         logits = None
+    #             else:
+    #                 logits = outputs
+    #         else:
+    #             loss = None
+    #             outputs = model(inputs)
+    #             if isinstance(outputs, dict):
+    #                 if "action_pred" in outputs:
+    #                     logits = outputs["action_pred"]
+    #                 else:
+    #                     logits_keys = [k for k in outputs.keys() if k not in ignore_keys and torch.is_tensor(outputs[k])]
+    #                     if logits_keys:
+    #                         logits = outputs[logits_keys[0]]
+    #                     else:
+    #                         logits = None
+    #             else:
+    #                 logits = outputs
 
-        if prediction_loss_only:
-            return (loss, None, None)
+    #     if prediction_loss_only:
+    #         return (loss, None, None)
 
-        # Handle labels - for GR00T, the actions are the labels
-        labels = inputs.get("action", None)
+    #     # Handle labels - for GR00T, the actions are the labels
+    #     labels = inputs.get("action", None)
         
-        return (loss, logits, labels)
+    #     return (loss, logits, labels)
 
     def create_optimizer(self):
         """
