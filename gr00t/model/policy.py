@@ -290,8 +290,6 @@ class Gr00tPolicy(BasePolicy):
 
             # Replace the action head
             model.action_head = new_action_head
-            slices = model.action_head.state_tokenizer.slices
-            model = migrate_fused_to_tokenized(model, slices)
 
             # Update model config AND the action_head_cfg dictionary that gets saved
             model.config.action_horizon = expected_action_horizon

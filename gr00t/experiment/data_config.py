@@ -975,7 +975,7 @@ class So101TwoArmsConfig(So100DataConfig):
 class TNGUR5BaseConfig(BaseDataConfig):
     video_keys = []
     state_keys = []
-    state_lengths = []
+    state_slices = []
     action_keys = []
     language_keys = []
     observation_indices = [0]
