@@ -1052,48 +1052,49 @@ class TNGUR5BaseConfig(BaseDataConfig):
         return ComposedModalityTransform(transforms=transforms)
 
 class TNGUR5_AbsoluteJointState_AbsoluteJointAction_2Cams(TNGUR5BaseConfig):
-    video_keys = ["video.camera_wrist", "video.camera_global_front"]
+    video_keys = ["video.camera_wrist", "video.camera_global_main"]
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.robot_arm", "action.gripper"]
     language_keys = ["annotation.human.task_description"]
 
     
 class TNGUR5_AbsoluteJointState_AbsoluteJointAction_3Cams(TNGUR5BaseConfig):
-    video_keys = ["video.camera_wrist", "video.camera_global_front", "video.camera_global_side"]
+    video_keys = ["video.camera_wrist", "video.camera_global_main", "video.camera_global_secondary"]
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.robot_arm", "action.gripper"]
     language_keys = ["annotation.human.task_description"]
 
 
 class TNGUR5SchunkConfig_RL(TNGUR5BaseConfig):
-    video_keys = ["video.wrist_cam", "video.global_front_cam", "video.global_side_cam"]
+    video_keys = ["video.wrist_cam", "video.global_main_cam", "video.global_secondary_cam"]
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.absolute_joints", "action.absolute_gripper"]
     language_keys = ["annotation.human.task_description"]
     
 class TNGUR5_AbsoluteAndDeltaJointState_AbsoluteJointAction_2Cams(TNGUR5BaseConfig):
-    video_keys = ["video.camera_wrist", "video.camera_global_front"]
+    video_keys = ["video.camera_wrist", "video.camera_global_main"]
     state_keys = ["state.robot_arm", "state.gripper", "state.delta_robot_arm", "state.delta_gripper"]
     action_keys = ["action.robot_arm", "action.gripper"]
     language_keys = ["annotation.human.task_description"]
 
 
 class TNGUR5_AbsoluteAndDeltaJointState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
-    video_keys = ["video.camera_wrist", "video.camera_global_front"]
+    video_keys = ["video.camera_wrist", "video.camera_global_main"]
     state_keys = ["state.robot_arm", "state.gripper", "state.delta_robot_arm", "state.delta_gripper"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
+    state_slices = [(0,6), (6,7), (7,13), (13,14)]
     
 
 class TNGUR5_AbsoluteJointState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
-    video_keys = ["video.camera_wrist", "video.camera_global_front"]
+    video_keys = ["video.camera_wrist", "video.camera_global_main"]
     state_keys = ["state.robot_arm", "state.gripper"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
     state_slices = [(0,6), (6,7)]  
 
 class TNGUR5_AbsoluteJointAndAbsouluteTCPState_DeltaJointAction_2Cams(TNGUR5BaseConfig):
-    video_keys = ["video.camera_wrist", "video.camera_global_front"]
+    video_keys = ["video.camera_wrist", "video.camera_global_main"]
     state_keys = ["state.robot_arm", "state.gripper", "state.tcp_pose"]
     action_keys = ["action.delta_robot_arm", "action.delta_gripper"]
     language_keys = ["annotation.human.task_description"]
