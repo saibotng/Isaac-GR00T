@@ -60,7 +60,7 @@ class PerModalityStateTokenizer(nn.Module):
         self.per_mod_ln = nn.ModuleList([
             nn.LayerNorm(embed_dim) for _ in self.ordered_state_slices
         ])
-        self.post_pool_ln = nn.LayerNorm(embed_dim)
+
 
     
 
@@ -78,44 +78,10 @@ class PerModalityStateTokenizer(nn.Module):
             z = self.per_mod_ln[i](z)
             tokens.append(z)
         state_tokens = torch.cat(tokens, dim=1)
-        state_tokens = state_tokens.mean(dim=1).unsqueeze(1) 
-        state_tokens = self.post_pool_ln(state_tokens)
+
+        # Optional: pool over modalities to get single token (B,T,1,embed_dim)
+        #state_tokens = state_tokens.mean(dim=1).unsqueeze(1) 
         return state_tokens
-
-
-# def _first_two_linear_layers(module: nn.Module):
-#     layers = [m for m in module.modules() if isinstance(m, nn.Linear)]
-#     assert len(layers) >= 2, "Expected at least two Linear layers in CategorySpecificMLP"
-#     return layers[0], layers[1]
-
-# @torch.no_grad()
-# def migrate_fused_to_tokenized(model, modality_slices: dict):
-#     """
-#     Copy weights from fused state_encoder to per-modality adapters by slicing columns of the first linear layer.
-#     Assumes model.action_head.state_encoder and .state_tokenizer exist.
-#     """
-#     head = model.action_head
-#     fused = head.state_encoder
-#     tok  = head.state_tokenizer
-
-#     lin1_fused, lin2_fused = _first_two_linear_layers(fused)
-
-#     for m, (s,e) in modality_slices.items():
-#         lin1_m, lin2_m = _first_two_linear_layers(tok.adapters[m])
-
-#         # 1) first layer: copy column slice (D, in_dim_m)
-#         lin1_m.weight.copy_(lin1_fused.weight[:, s:e])
-#         if lin1_m.bias is not None and lin1_fused.bias is not None:
-#             lin1_m.bias.copy_(lin1_fused.bias)
-
-#         # 2) second layer: copy whole (D, D)
-#         lin2_m.weight.copy_(lin2_fused.weight)
-#         if lin2_m.bias is not None and lin2_fused.bias is not None:
-#             lin2_m.bias.copy_(lin2_fused.bias)
-
-#         # leave tok.type_embed[m] small-random (good)
-#     return model
-
 
 
 def _get_category_specific_layers(module: nn.Module):
