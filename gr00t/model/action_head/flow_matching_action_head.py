@@ -205,10 +205,6 @@ class FlowmatchingActionHead(nn.Module):
             self.position_embedding = nn.Embedding(config.max_seq_len, self.input_embedding_dim)
             nn.init.normal_(self.position_embedding.weight, mean=0.0, std=0.02)
 
-        # if config.use_per_modality_tokenizer:
-        #     self.state_positional_encoding = nn.Embedding(config.max_seq_len, self.input_embedding_dim) 
-        #     nn.init.normal_(self.state_positional_encoding.weight, mean=0.0, std=0.02)
-
 
         self.beta_dist = Beta(config.noise_beta_alpha, config.noise_beta_beta)
         self.num_timestep_buckets = config.num_timestep_buckets
@@ -308,11 +304,11 @@ class FlowmatchingActionHead(nn.Module):
         # Embed state using the appropriate encoder.
         if self.state_tokenizer is not None:
             # Use the new per-modality tokenizer
-            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,M,D)
+            state_features = self.state_tokenizer(action_input.state, embodiment_id)  
         else:
             # Fallback to the old fused state encoder
             
-            state_features = self.state_encoder(action_input.state, embodiment_id)  # (B,T,D)
+            state_features = self.state_encoder(action_input.state, embodiment_id)  
 
         # Embed noised action trajectory.
         actions = action_input.action
@@ -370,11 +366,11 @@ class FlowmatchingActionHead(nn.Module):
         # Embed state using the appropriate encoder.
         if self.state_tokenizer is not None:
             # Use the new per-modality tokenizer
-            state_features = self.state_tokenizer(action_input.state, embodiment_id)  # (B,M,D)
+            state_features = self.state_tokenizer(action_input.state, embodiment_id)  
         else:
             # Fallback to the old fused state encoder
             
-            state_features = self.state_encoder(action_input.state, embodiment_id)  # (B,T,D)
+            state_features = self.state_encoder(action_input.state, embodiment_id) 
 
         # Set initial actions as the sampled noise.
         batch_size = vl_embs.shape[0]
