@@ -143,6 +143,8 @@ class FlowmatchingActionHeadConfig(PretrainedConfig):
             setattr(self, key, value)
 
 
+
+
 class FlowmatchingActionHead(nn.Module):
     config_class = FlowmatchingActionHeadConfig
     supports_gradient_checkpointing = True
@@ -155,7 +157,7 @@ class FlowmatchingActionHead(nn.Module):
         self.hidden_size = config.hidden_size
         self.input_embedding_dim = config.input_embedding_dim
 
-        self.model = DiT(**config.diffusion_model_cfg)
+        self.model = DiT(**config.diffusion_model_cfg, handle_modality_tokens=config.use_per_modality_tokenizer)
         self.action_dim = config.action_dim
         self.action_horizon = config.action_horizon
         self.state_slices = config.state_slices
@@ -188,6 +190,12 @@ class FlowmatchingActionHead(nn.Module):
                 embed_dim=self.input_embedding_dim,
                 num_embodiments=config.max_num_embodiments,
             )
+            # --- Gating params (one scalar per state-modality token) ---
+            num_modalities = len(sorted(state_slices.items()))
+            # logits init ~ 0 => gates ~ 0.5; bump to 0.6 if you prefer "on-by-default"
+            self.state_gate_logit = nn.Parameter(torch.zeros(num_modalities))
+            # optional: train-only dropout over state gates (start disabled, set p later if you want)
+            self.state_gate_dropout_p = 0.0
 
         self.future_tokens = nn.Embedding(config.num_target_vision_tokens, self.input_embedding_dim)
         nn.init.normal_(self.future_tokens.weight, mean=0.0, std=0.02)
@@ -267,6 +275,32 @@ class FlowmatchingActionHead(nn.Module):
         backbone_features = self.vl_self_attention(backbone_features)
         backbone_output["backbone_features"] = backbone_features
         return backbone_output
+
+    def _build_token_gates(self, state_features, future_tokens, action_features):
+        """
+        Returns token_gates of shape (B, Ttot) aligned with [state, future, action].
+        State gates come from learnable logits; future/action default to 1.0.
+        """
+        device = state_features.device
+        B = state_features.size(0)
+        n_state = state_features.size(1)
+        n_fut   = future_tokens.size(1)
+        n_act   = action_features.size(1)
+
+        # per-modality scalar gates in (0,1)
+        g_state = torch.sigmoid(self.state_gate_logit)  # (M,)
+        if self.training and self.state_gate_dropout_p > 0:
+            drop = torch.bernoulli(
+                torch.full_like(g_state, self.state_gate_dropout_p)
+            )
+            # Drop gates to zero with prob p (stochastic sparsity); comment out if not desired
+            g_state = g_state * (1.0 - drop)
+        g_state = g_state.unsqueeze(0).expand(B, n_state)  # (B, M)
+
+        ones_f  = torch.ones(B, n_fut, device=device, dtype=state_features.dtype)
+        ones_a  = torch.ones(B, n_act, device=device, dtype=state_features.dtype)
+        token_gates = torch.cat([g_state.to(state_features.dtype), ones_f, ones_a], dim=1)  # (B, total_toks)
+        return token_gates
 
     def forward(self, backbone_output: BatchFeature, action_input: BatchFeature) -> BatchFeature:
         # Set frozen modules to eval

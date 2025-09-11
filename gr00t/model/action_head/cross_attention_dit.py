@@ -212,12 +212,14 @@ class DiT(ModelMixin, ConfigMixin):
         positional_embeddings: Optional[str] = "sinusoidal",
         interleave_self_attention=False,
         cross_attention_dim: Optional[int] = None,
+        handle_modality_tokens: bool = False,
     ):
         super().__init__()
 
         self.attention_head_dim = attention_head_dim
         self.inner_dim = self.config.num_attention_heads * self.config.attention_head_dim
         self.gradient_checkpointing = False
+        self.handle_modality_tokens = handle_modality_tokens
 
         # Timestep encoder
         self.timestep_encoder = TimestepEncoder(
