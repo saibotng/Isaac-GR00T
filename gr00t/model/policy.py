@@ -165,19 +165,19 @@ class Gr00tPolicy(BasePolicy):
         Returns:
             Dict[str, Any]: The predicted action.
         """
-        # let the get_action handles both batch and single input
-        is_batch = self._check_state_is_batched(observations)
+        # Create a copy to avoid mutating input
+        obs_copy = observations.copy()
+
+        is_batch = self._check_state_is_batched(obs_copy)
         if not is_batch:
-            observations = unsqueeze_dict_values(observations)
+            obs_copy = unsqueeze_dict_values(obs_copy)
 
-        # NOTE(YL): ensure keys are all in numpy array
-        for k, v in observations.items():
+        # Convert to numpy arrays
+        for k, v in obs_copy.items():
             if not isinstance(v, np.ndarray):
-                observations[k] = np.array(v)
+                obs_copy[k] = np.array(v)
 
-        # Apply transforms
-        normalized_input = self.apply_transforms(observations)
-
+        normalized_input = self.apply_transforms(obs_copy)
         normalized_action = self._get_action_from_normalized_input(normalized_input)
         unnormalized_action = self._get_unnormalized_action(normalized_action)
 
@@ -239,7 +239,6 @@ class Gr00tPolicy(BasePolicy):
     def _load_model(self, model_path):
         model = GR00T_N1_5.from_pretrained(model_path, torch_dtype=COMPUTE_DTYPE)
         model.eval()  # Set model to eval mode
-        model.to(device=self.device)  # type: ignore
 
         # Debug: Print information about the loaded model
         print("=" * 50)
@@ -295,6 +294,8 @@ class Gr00tPolicy(BasePolicy):
             model.config.action_horizon = expected_action_horizon
             model.action_horizon = expected_action_horizon
             model.config.action_head_cfg["action_horizon"] = expected_action_horizon
+
+        model.to(device=self.device)  # type: ignore
 
         self.model = model
 
@@ -363,7 +364,7 @@ def unsqueeze_dict_values(data: Dict[str, Any]) -> Dict[str, Any]:
         if isinstance(v, np.ndarray):
             unsqueezed_data[k] = np.expand_dims(v, axis=0)
         elif isinstance(v, list):
-            unsqueezed_data[k] = np.array(v)
+            unsqueezed_data[k] = np.expand_dims(np.array(v), axis=0)  # Fixed
         elif isinstance(v, torch.Tensor):
             unsqueezed_data[k] = v.unsqueeze(0)
         else:
@@ -378,9 +379,9 @@ def squeeze_dict_values(data: Dict[str, Any]) -> Dict[str, Any]:
     squeezed_data = {}
     for k, v in data.items():
         if isinstance(v, np.ndarray):
-            squeezed_data[k] = np.squeeze(v)
+            squeezed_data[k] = np.squeeze(v, axis=0)  # Fixed: only remove batch dim
         elif isinstance(v, torch.Tensor):
-            squeezed_data[k] = v.squeeze()
+            squeezed_data[k] = v.squeeze(0)  # Fixed: only remove batch dim
         else:
             squeezed_data[k] = v
     return squeezed_data
