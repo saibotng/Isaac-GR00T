@@ -73,7 +73,9 @@ _PROJECTOR_INDEX_GROUPS: dict[int, set[str]] = {
     # Finetune placeholder projector; sim-eval robocasa tags piggyback on
     # `new_embodiment`.
     10: {"new_embodiment", "robocasa_panda_omron", "robocasa_gr1_tabletop"},
-    11: {"unitree_g1_sonic"},
+    # Same G1+SONIC embodiment with and without the Dex3 hands (hands
+    # physically removed 2026-08); layouts differ, checkpoints don't mix.
+    11: {"unitree_g1_sonic", "unitree_g1_sonic_nohands"},
     24: {"oxe_droid_relative_eef_relative_joint"},
     # Same G1 embodiment either side of the pretrain/posttrain boundary
     # (`real_g1_*` is pretrain, `unitree_g1_full_body_*` is posttrain).

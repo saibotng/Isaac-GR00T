@@ -112,6 +112,45 @@ MODALITY_CONFIGS = {
             modality_keys=["annotation.human.task_description"],
         ),
     },
+    # No-hands variant of unitree_g1_sonic (Dex3 hands physically removed):
+    # state 46->32 dims (no left_hand/right_hand), action 78->64 dims (motion
+    # token only). Same physical robot -> shares projector slot 11, but the
+    # layout differs, so fine-tune only from the base model — never resume a
+    # with-hands unitree_g1_sonic checkpoint under this tag (or vice versa).
+    "unitree_g1_sonic_nohands": {
+        "video": ModalityConfig(
+            delta_indices=[0],
+            modality_keys=["ego_view"],
+        ),
+        "state": ModalityConfig(
+            delta_indices=[0],
+            modality_keys=[
+                "left_leg",
+                "right_leg",
+                "waist",
+                "left_arm",
+                "right_arm",
+                "projected_gravity",
+            ],
+        ),
+        "action": ModalityConfig(
+            delta_indices=list(range(40)),
+            modality_keys=[
+                "motion_token",
+            ],
+            action_configs=[
+                ActionConfig(
+                    rep=ActionRepresentation.ABSOLUTE,
+                    type=ActionType.NON_EEF,
+                    format=ActionFormat.DEFAULT,
+                ),
+            ],
+        ),
+        "language": ModalityConfig(
+            delta_indices=[0],
+            modality_keys=["annotation.human.task_description"],
+        ),
+    },
     "unitree_g1_full_body_with_waist_height_nav_cmd": {
         "video": ModalityConfig(
             delta_indices=[0],
