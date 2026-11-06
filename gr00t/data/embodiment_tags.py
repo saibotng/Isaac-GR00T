@@ -43,6 +43,7 @@ class EmbodimentTag(Enum):
     - UNITREE_G1           -> "unitree_g1_full_body_with_waist_height_nav_cmd"
     - UNITREE_G1_SONIC     -> "unitree_g1_sonic"
     - UNITREE_G1_SONIC_NOHANDS -> "unitree_g1_sonic_nohands"
+    - UNITREE_G1_SONIC_3CAM -> "unitree_g1_sonic_3cam"
     - SIMPLER_ENV_GOOGLE   -> "simpler_env_google"
     - SIMPLER_ENV_WIDOWX   -> "simpler_env_widowx"
     - LIBERO_PANDA         -> "libero_sim"
@@ -115,6 +116,13 @@ class EmbodimentTag(Enum):
     unitree_g1_sonic without the Dex3 hands (state 46->32, action 78->64 dims).
     Same physical robot, shares the SONIC projector slot; checkpoints are NOT
     layout-compatible with the with-hands tag.
+    """
+
+    UNITREE_G1_SONIC_3CAM = "unitree_g1_sonic_3cam"
+    """
+    unitree_g1_sonic with three camera views (ego_view + left_wrist + right_wrist).
+    State/action/language identical to unitree_g1_sonic (with hands); shares the
+    SONIC projector slot. Only the video keys differ.
     """
 
     SIMPLER_ENV_GOOGLE = "simpler_env_google"
@@ -216,6 +224,7 @@ POSTTRAIN_TAGS: frozenset[EmbodimentTag] = frozenset(
         EmbodimentTag.UNITREE_G1,
         EmbodimentTag.UNITREE_G1_SONIC,
         EmbodimentTag.UNITREE_G1_SONIC_NOHANDS,
+        EmbodimentTag.UNITREE_G1_SONIC_3CAM,
         EmbodimentTag.SIMPLER_ENV_GOOGLE,
         EmbodimentTag.SIMPLER_ENV_WIDOWX,
         EmbodimentTag.LIBERO_PANDA,

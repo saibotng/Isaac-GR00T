@@ -13,6 +13,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import copy
+
 from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.data.types import (
     ActionConfig,
@@ -388,6 +390,18 @@ MODALITY_CONFIGS = {
             modality_keys=["task"],
         ),
     },
+}
+
+
+# 3-camera variant of unitree_g1_sonic (second G1: head D405 = ego_view + two wrist
+# D405s). Derived from unitree_g1_sonic so state/action/language can never drift
+# apart — only the video keys differ. Deep-copied so the two tags share no objects.
+MODALITY_CONFIGS["unitree_g1_sonic_3cam"] = {
+    **copy.deepcopy(MODALITY_CONFIGS["unitree_g1_sonic"]),
+    "video": ModalityConfig(
+        delta_indices=[0],
+        modality_keys=["ego_view", "left_wrist", "right_wrist"],
+    ),
 }
 
 
